@@ -3,8 +3,9 @@ on: [push, pull_request]
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        os: [windows-2022, ubuntu-22.04]
         python: ['3.9', '3.12']
     runs-on: ${{ matrix.os }}
     steps:
