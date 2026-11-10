@@ -16,7 +16,7 @@ description: "Inspect STM32CubeMX, configure MCU pins and peripherals, and safel
 - 先读取目标 `.ioc`、工程结构和已有决定，确认 MCU、板卡、CubeMX/数据库版本和固件包；`.ioc` 的 `MxCube.Version` 只是记录值。
 - 优先在完整工程的临时副本操作，保留 `.ioc`、`.mxproject`、用户代码、生成器文件和必要固件；记录文件哈希。修改实际工程前需具备用户授权并保留完整备份。
 - 检查 `ProjectManager.DeletePrevious`、`BackupPrevious`、`KeepUserCode` 和 `UAScriptBeforePath` / `UAScriptAfterPath`；执行现有外部脚本须在用户授权范围内。
-- 用户要求离线时，必须先由运行环境限制进程网络并隔离写入；无法验证所需隔离时不要启动 CubeMX。Java 参数和本技能控制器本身都不是操作系统级沙箱。不擅自下载或安装依赖。
+- 用户要求离线时，必须先由运行环境限制进程网络并隔离写入；无法验证所需隔离时不要启动 CubeMX。Java 参数和本技能控制器本身都不是操作系统级沙箱。不擅自下载或安装依赖。[Windows 实验性启动方案](references/offline-windows.md)可复用进程隔离，但需要预先准备应用副本和权限，不能自动证明文件或全部网络路径隔离。
 
 ## 真实验证的闭环
 1. 将现有工程复制到临时目录，记录生成前的文件清单和哈希。确认目标引脚空闲且属于用户要求。
@@ -57,4 +57,4 @@ if ($LASTEXITCODE -ne 0) { throw 'CubeMX command failed; inspect events and tran
 - F4 离线探针的空目录生成日志包含重复拼接的绝对路径和 `sysmem.c`、`syscalls.c` 的 `FileNotFoundException`，但命令仍返回 `OK`；先检查文件是否确实生成。6.18.1 临时副本的字节码显示生成器将工程路径无条件拼在已是绝对路径的源码目录前；在临时副本修正后，首次生成和兼容构建通过，详见[探针记录](references/probe-record.md)。该补丁只覆盖探针条件，不是通用修复，也未安装到 CubeMX。相对工程路径则在本次探针中触发空路径根异常。`KeepUserCode=true` 不保证区外内容或其他文件不变。
 
 ## 证据与限制
-[探针记录](references/probe-record.md) 保存 F103 重生成闭环、失败停止及 F407 从零配置、生成缺陷和临时修正后的离线构建证据；F4 使用临时 Clang/LLD 兼容适配，未验证未修改生成器的一次性生成或实板运行。
+[探针记录](references/probe-record.md) 保存 F103、F407 的生成实验及 G0、L4 的配置回读结果；G0/L4 尚未验证代码生成、构建或实板，F4 构建使用临时生成器修正和工具链适配。

@@ -4,6 +4,8 @@
 
 ## 已观察的行为
 
+- 2026-11-10，Windows、CubeMX 6.18.1：在零 capability AppContainer 中分别加载 `STM32G030F6Px`（TSSOP20）和 `STM32L412RBTx`（LQFP64），查询 PA5 功能、设为 `GPIO_Output`、回读并导出引脚 CSV，命令均成功。G0 使用仓库实验性离线启动器又完成一次同样的配置。两个系列没有验证代码生成、构建或硬件；本机未找到其固件包，不能将工具显示的固件版本视为已安装。运行所用临时应用副本含 F4 生成器补丁，但这两次没有执行生成。
+- 实验性 Windows 启动器在既有权限的临时副本上完成 CubeMX 版本查询与 G0 配置，日志记录 `appcontainer=1 capabilities=0`；错误 SID 在目标启动前被拒绝，随后成功复用相同 profile 名称。此前以新增目标 SID 查询进行的一次尝试在退出时出现 `0xC0000008`；移除该查询后对照成功，根因未完全确认。启动器仅在已准备的环境下实测，准备步骤及限制见 [offline-windows.md](offline-windows.md)。
 - Windows 上 CubeMX 6.18.1、F103：在已有工程的临时副本中，将 PA6 改为 `GPIO_Output`；同一交互会话回读并重生成后，`.ioc` 和 `gpio.c` 反映了修改，其他引脚信号与 RCC 参数未改变，工程构建成功。
 - 无效引脚信号返回 `KO` 后，交互控制器没有发送后续生成命令；普通 CubeMX 批处理遇到 `KO` 则可能继续。控制器还经历过模拟异常测试。
 - F103 时钟实验中，`clock set PLLMUL 8` 和 `9` 分别对应工具读数 64 MHz 和 72 MHz；C 宏形式曾返回 `KO`，`clock set hclk` 曾阻塞。不能将这些结果推广到所有器件或版本。

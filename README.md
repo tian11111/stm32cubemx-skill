@@ -14,6 +14,8 @@ git clone https://github.com/tian11111/stm32cubemx-skill.git "$env:USERPROFILE\.
 
 使用入口和控制器计划格式见 [SKILL.md](SKILL.md)，历史实测边界及启动模板见 [探针记录](references/probe-record.md)。操作前备份工程，先在临时副本验证。控制器不会隔离网络、回滚文件或验证硬件。
 
+Windows 用户可参考[实验性离线启动方案](references/offline-windows.md)。它需要自行准备独立的应用副本和目录权限，不能保证完整文件隔离；仓库不包含已经配置好的 CubeMX 运行副本。
+
 ## 测试
 
 在仓库根目录运行：
