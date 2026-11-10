@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 """Run CubeMX interactive commands one at a time, stopping on ambiguous or failed replies."""
-import argparse, json, os, queue, re, subprocess, sys, threading, time
+import argparse, json, math, os, queue, re, subprocess, sys, threading, time
 from pathlib import Path
 
-PROMPT = b'MX>'
+PROMPT = b'MX> '
 STATUS = re.compile(r'(?m)^\s*(?:\d+\s+)?(OK|KO)\s*$')
 
 class GuardError(Exception):
     pass
+
+def valid_timeout(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value) and 0 < value <= threading.TIMEOUT_MAX
+    except OverflowError:
+        return False
 
 def main():
     parser = argparse.ArgumentParser()
@@ -26,8 +34,8 @@ def main():
             or not all(isinstance(k, str) and isinstance(v, str) for k, v in launch.get('env', {}).items())
             or not isinstance(plan, list) or not plan):
         raise GuardError('invalid launch or empty plan')
-    if opt.startup_timeout <= 0 or opt.step_timeout <= 0:
-        raise GuardError('timeouts must be positive')
+    if not valid_timeout(opt.startup_timeout) or not valid_timeout(opt.step_timeout):
+        raise GuardError('timeouts must be positive, finite, and within platform limits')
     for step in plan:
         if not isinstance(step, dict) or not isinstance(step.get('command'), str):
             raise GuardError('each step needs a command string')
@@ -38,8 +46,8 @@ def main():
         if (not isinstance(step.get('expect', []), list) or not isinstance(step.get('reject', []), list)
                 or not all(isinstance(x, str) and x for x in step.get('expect', []) + step.get('reject', []))):
             raise GuardError('expect and reject must contain nonempty strings')
-        if 'timeout' in step and (not isinstance(step['timeout'], (int, float)) or step['timeout'] <= 0):
-            raise GuardError('step timeout must be positive')
+        if 'timeout' in step and not valid_timeout(step['timeout']):
+            raise GuardError('step timeout must be positive, finite, and within platform limits')
     env = os.environ.copy()
     env.update(launch.get('env', {}))
     events = {'result': 'running', 'steps': []}
@@ -76,8 +84,10 @@ def main():
                     raise GuardError(f'rejected output while waiting for prompt: {text!r}')
             if len(pending) > 16 * 1024 * 1024:
                 raise GuardError('too much output while waiting for prompt')
-            match = re.search(rb'(?m)^MX>', pending)
+            match = re.search(rb'(?m)^' + re.escape(PROMPT), pending)
             if match:
+                if re.match(rb'(?:\d+\s+)?(?:OK|KO)(?:\s|$)', pending[match.end():]):
+                    raise GuardError('ambiguous status immediately after prompt')
                 result = bytes(pending[:match.start()])
                 del pending[:match.end()]
                 return result.decode('utf-8', errors='replace')
@@ -93,6 +103,8 @@ def main():
             pending.extend(chunk)
 
     try:
+        if 'cwd' in launch and (not isinstance(launch['cwd'], str) or not launch['cwd']):
+            raise GuardError('cwd must be a nonempty path string')
         proc = subprocess.Popen(launch['argv'], cwd=launch.get('cwd'), env=env,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
@@ -123,9 +135,11 @@ def main():
             event['result'] = 'passed'
             print('PASS', cmd, flush=True)
         events['result'] = 'passed'
-    except (GuardError, OSError, ValueError) as exc:
+    except (GuardError, OSError, ValueError, TypeError) as exc:
         events['result'] = 'failed'
         events['error'] = str(exc)
+        if events['steps'] and events['steps'][-1]['result'] == 'sent':
+            events['steps'][-1]['result'] = 'failed'
         print('STOP', exc, flush=True)
     finally:
         if proc is not None and proc.poll() is None:

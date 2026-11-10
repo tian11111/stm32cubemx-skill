@@ -8,11 +8,15 @@ description: "Inspect STM32CubeMX, configure MCU pins and peripherals, and safel
 ## 适用场景
 查找现有 STM32CubeMX 和固件包、分析或修改 `.ioc`、核验引脚与时钟、生成或重生成工程。按任务需要选步骤，不必每次运行全部探针。
 
+## 任务输入与报告
+- 按任务收集 MCU 或板卡、工程路径、期望更改、目标工具链和离线约束；已有工程以实际 `.ioc` 和文件为准。缺少影响操作的必要信息时先确认。
+- 完成时报告实际更改的工程和配置、使用的 CubeMX 与工具链、执行的验证及结果、离线隔离是否得到验证，以及未覆盖的生成、构建或硬件边界。
+
 ## 前置条件
 - 先读取目标 `.ioc`、工程结构和已有决定，确认 MCU、板卡、CubeMX/数据库版本和固件包；`.ioc` 的 `MxCube.Version` 只是记录值。
 - 优先在完整工程的临时副本操作，保留 `.ioc`、`.mxproject`、用户代码、生成器文件和必要固件；记录文件哈希。修改实际工程前需具备用户授权并保留完整备份。
 - 检查 `ProjectManager.DeletePrevious`、`BackupPrevious`、`KeepUserCode` 和 `UAScriptBeforePath` / `UAScriptAfterPath`；执行现有外部脚本须在用户授权范围内。
-- 用户要求离线时，必须先由运行环境限制进程网络并隔离写入；Java 参数和本技能控制器本身都不是操作系统级沙箱。不擅自下载或安装依赖。
+- 用户要求离线时，必须先由运行环境限制进程网络并隔离写入；无法验证所需隔离时不要启动 CubeMX。Java 参数和本技能控制器本身都不是操作系统级沙箱。不擅自下载或安装依赖。
 
 ## 真实验证的闭环
 1. 将现有工程复制到临时目录，记录生成前的文件清单和哈希。确认目标引脚空闲且属于用户要求。
@@ -23,20 +27,7 @@ description: "Inspect STM32CubeMX, configure MCU pins and peripherals, and safel
 ## 逐条执行与失败停止
 本技能的 [scripts/cubemx_guard.py](scripts/cubemx_guard.py) 通过 `MX>` 提示符与 CubeMX 交互。它每次只发送一条命令；遇到 `KO`、不唯一或无法识别的状态、期望文本不符、指定错误文本、超时或进程异常时停止发送后续命令。启动后会记录事件与原始日志；输入校验或创建日志失败时可能没有事件文件。它拒绝嵌套 `script` 和手动 `exit`；停止后不会回滚已经写出的文件。分享日志前检查其中的路径和敏感内容。
 
-`--launch` 是 JSON 对象，包含 `argv` 字符串数组、可选 `cwd` 和 `env`；启动命令必须进入交互式 `-i`。`--plan` 是 JSON 数组，每项包含一条 `command`，可选 `expect`、`reject` 字符串数组和秒数 `timeout`。下面仅示范已测的 F103 项目；应替换为实际临时副本的绝对路径和用户要求：
-
-```json
-[
-  {"command":"config load \"C:/TEMP/ProbeF103/ProbeF103.ioc\""},
-  {"command":"get mcu name","expect":["STM32F103C(8-B)Tx"]},
-  {"command":"csv pinout \"C:/TEMP/pinout-before.csv\""},
-  {"command":"set pin PA6 GPIO_Output"},
-  {"command":"get signal PA6","expect":["PA6: GPIO_Output"]},
-  {"command":"csv pinout \"C:/TEMP/pinout-after.csv\""},
-  {"command":"get signal PA6","expect":["PA6: GPIO_Output"]},
-  {"command":"project generate","timeout":90,"reject":["Problem in the project generation","Problem in the update of the project","Error in Project Generation","OutOfMemoryError","There is insufficient memory","FileNotFoundException"]}
-]
-```
+`--launch` 是 JSON 对象，包含 `argv` 字符串数组、可选 `cwd` 和 `env`；启动命令必须进入交互式 `-i`。`--plan` 是 JSON 数组，每项包含一条 `command`，可选 `expect`、`reject` 字符串数组和秒数 `timeout`。在同一会话加载临时副本、核对 MCU、导出修改前后引脚、设置并回读信号，全部成功后才生成；[F103 计划示例](references/f103-plan.md)展示具体命令，应替换为实际路径和用户要求。
 
 使用现有 Python 标准库运行，日志和事件路径须是**不存在的新文件**：
 
@@ -48,7 +39,9 @@ $TaskDir = '<临时目录>'
 if ($LASTEXITCODE -ne 0) { throw 'CubeMX command failed; inspect events and transcript' }
 ```
 
-控制器依赖 CubeMX 6.18.1 实测的提示符与 `OK`/`KO` 格式；其他版本出现不同格式时应停下核实。`FileNotFoundException` 是针对 F4 日志的防漏检查，仍须检查文件；生成成功的实测包含此条件，但尚未用真实异常验证它能停止生成。启动模板及隔离限制见[探针记录](references/probe-record.md)。模板不会自动断网，历史探针使用的临时隔离运行器未包含在本仓库中。
+控制器依赖 Windows 上 CubeMX 6.18.1 实测的提示符与 `OK`/`KO` 格式；使用其他版本前先验证这些格式，无法确认时停止。`FileNotFoundException` 是针对 F4 日志的防漏检查，仍须检查文件；生成成功的实测包含此条件，但尚未用真实异常验证它能停止生成。启动模板及隔离限制见[探针记录](references/probe-record.md)。模板不会自动断网，历史探针使用的临时隔离运行器未包含在本仓库中。
+
+提示符之后可能还有异步输出；控制器只能检查已收到的内容，不能保证捕获发送下一条命令之后才到达的错误。生成后必须核对完整日志与实际文件，不得只凭交互状态认定生成完整。
 
 ## 配置、时钟和输出检查
 - `load <mcu>` 或 `loadboard <board> <nomode|allmodes>` 后，用 `get mcu name` 核对；先 `get functions <pin>`、`get modes <peripheral>`，再 `set mode`、`set pin`，并用 `get signal`、`get mode active` 回读。
