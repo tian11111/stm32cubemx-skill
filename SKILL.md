@@ -14,6 +14,8 @@ description: "Use when STM32 work may change CubeMX-managed pins, peripheral ini
 3. 若需要改变 CubeMX 管理的初始配置，优先通过 CubeMX 修改对应 `.ioc` 并回读，按任务授权和工程状态在临时副本生成、审阅差异后同步工程。不要只改生成代码就声称配置已完成；也不要把 `.ioc` 中的文本直接修改视为已通过 CubeMX 验证。
 4. 核对目标引脚、外设模式、时钟及与任务相关的 DMA/NVIC，检查引脚冲突、其他外设、生成文件删除及用户代码保留；再执行与改动相关的构建或其他检查。若无法运行 CubeMX、回读或生成，保留证据并明确报告配置与生成代码是否仍未同步及剩余工作；不要用编译成功替代配置或实板验证。
 
+需要快照、生成后检查或恢复副本时，使用[验收工作流](references/verification.md)；外设具体核对项见[外设检查清单](references/peripherals.md)。这些工具不会自动覆盖原工程。
+
 ## 任务输入与报告
 - 按任务收集 MCU 或板卡、工程路径、期望更改、目标工具链和离线约束；已有工程以实际 `.ioc` 和文件为准。缺少影响操作的必要信息时先确认。
 - 完成时报告实际更改的工程和配置、使用的 CubeMX 与工具链、执行的验证及结果、离线隔离是否得到验证，以及未覆盖的生成、构建或硬件边界。
@@ -48,6 +50,7 @@ if ($LASTEXITCODE -ne 0) { throw 'CubeMX command failed; inspect events and tran
 控制器依赖 Windows 上 CubeMX 6.18.1 实测的提示符与 `OK`/`KO` 格式；使用其他版本前先验证这些格式，无法确认时停止。`FileNotFoundException` 是针对 F4 日志的防漏检查，仍须检查文件；生成成功的实测包含此条件，但尚未用真实异常验证它能停止生成。启动模板及隔离限制见[探针记录](references/probe-record.md)和[实验性离线方案](references/offline-windows.md)；常规模板不会自动断网。
 
 提示符之后可能还有异步输出；控制器只能检查已收到的内容，不能保证捕获发送下一条命令之后才到达的错误。生成后必须核对完整日志与实际文件，不得只凭交互状态认定生成完整。
+可按需使用 `--settle-seconds` 等待提示符后的静默期、`--log-reject <文本>` 在退出后扫描完整日志；它们都不能保证捕获任意延迟的错误。
 
 ## 配置、时钟和输出检查
 - `load <mcu>` 或 `loadboard <board> <nomode|allmodes>` 后，用 `get mcu name` 核对；先 `get functions <pin>`、`get modes <peripheral>`，再 `set mode`、`set pin`，并用 `get signal`、`get mode active` 回读。

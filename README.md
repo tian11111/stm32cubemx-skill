@@ -16,6 +16,8 @@ git clone https://github.com/tian11111/stm32cubemx-skill.git "$env:USERPROFILE\.
 
 Windows 用户可参考[实验性离线启动方案](references/offline-windows.md)。它需要自行准备独立的应用副本和目录权限，不能保证完整文件隔离；仓库不包含已经配置好的 CubeMX 运行副本。
 
+生成后的显式验收、快照和构建检查见[验收工作流](references/verification.md)；TIM、I2C、USART 等场景的注意事项见[外设检查清单](references/peripherals.md)。`doctor.py` 是只读环境探测，不会自动安装工具或启动 CubeMX。
+
 ## 测试
 
 在仓库根目录运行：

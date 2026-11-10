@@ -20,6 +20,8 @@ for line in sys.stdin:
     if command == 'exit':
         if mode == 'exit_after_success':
             sys.exit(4)
+        if mode == 'late_exit':
+            emit(b'GENERATION_ERROR\r\n')
         break
     if mode == 'exit':
         sys.exit(4)
@@ -33,6 +35,10 @@ for line in sys.stdin:
     elif mode == 'status_after_prompt':
         emit(b'0 OK\r\nMX> KO\r\n')
         time.sleep(3)
+    elif mode == 'delayed_error':
+        emit(b'0 OK\r\nMX> ')
+        time.sleep(0.05)
+        emit(b'GENERATION_ERROR\r\n')
     elif mode == 'reject':
         emit(b'forbidden\r\n0 OK\r\nMX> ')
     elif mode == 'ambiguous':
@@ -100,6 +106,19 @@ class GuardTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn('expected output', data['error'])
         self.assertNotIn('second', commands)
+
+    def test_delayed_error_with_quiet_interval_stops_next(self):
+        result, data, commands = self.run_guard(mode='delayed_error', args=('--settle-seconds', '.15'),
+            plan=[{'command': 'first', 'reject': ['GENERATION_ERROR']}, {'command': 'second'}])
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(data['result'], 'failed')
+        self.assertNotIn('second', commands)
+
+    def test_log_scan_catches_error_during_exit(self):
+        result, data, commands = self.run_guard(mode='late_exit', args=('--log-reject', 'GENERATION_ERROR'))
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(data['result'], 'failed')
+        self.assertIn('complete transcript', data['error'])
 
     def test_existing_outputs_are_not_overwritten(self):
         for name in ('events', 'transcript'):

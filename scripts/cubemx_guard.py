@@ -25,6 +25,8 @@ def main():
     parser.add_argument('--transcript', required=True, help='raw combined output path')
     parser.add_argument('--startup-timeout', type=float, default=60)
     parser.add_argument('--step-timeout', type=float, default=60)
+    parser.add_argument('--settle-seconds', type=float, default=0, help='optional quiet interval after prompts; cannot guarantee detection of later output')
+    parser.add_argument('--log-reject', action='append', default=[], help='literal text to scan for in complete transcript after exit')
     opt = parser.parse_args()
     launch = json.loads(Path(opt.launch).read_text(encoding='utf-8'))
     plan = json.loads(Path(opt.plan).read_text(encoding='utf-8'))
@@ -36,6 +38,10 @@ def main():
         raise GuardError('invalid launch or empty plan')
     if not valid_timeout(opt.startup_timeout) or not valid_timeout(opt.step_timeout):
         raise GuardError('timeouts must be positive, finite, and within platform limits')
+    if opt.settle_seconds != 0 and not valid_timeout(opt.settle_seconds):
+        raise GuardError('settle-seconds must be zero or a positive finite duration within platform limits')
+    if any(not value for value in opt.log_reject):
+        raise GuardError('log-reject must not be empty')
     for step in plan:
         if not isinstance(step, dict) or not isinstance(step.get('command'), str):
             raise GuardError('each step needs a command string')
@@ -86,10 +92,29 @@ def main():
                 raise GuardError('too much output while waiting for prompt')
             match = re.search(rb'(?m)^' + re.escape(PROMPT), pending)
             if match:
+                if opt.settle_seconds:
+                    while True:
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0:
+                            raise GuardError('timeout waiting for prompt quiet interval')
+                        try:
+                            extra = q.get(timeout=min(opt.settle_seconds, remaining))
+                        except queue.Empty:
+                            if time.monotonic() >= deadline:
+                                raise GuardError('timeout waiting for prompt quiet interval')
+                            break
+                        if extra is None:
+                            raise GuardError('process exited during prompt quiet interval')
+                        pending.extend(extra)
+                        if len(pending) > 16 * 1024 * 1024:
+                            raise GuardError('too much output while waiting for quiet')
+                    for text in rejected:
+                        if text.encode('utf-8') in pending:
+                            raise GuardError(f'rejected output during prompt quiet interval: {text!r}')
                 if re.match(rb'(?:\d+\s+)?(?:OK|KO)(?:\s|$)', pending[match.end():]):
                     raise GuardError('ambiguous status immediately after prompt')
-                result = bytes(pending[:match.start()])
-                del pending[:match.end()]
+                result = bytes(pending[:match.start()] + pending[match.end():])
+                pending.clear()
                 return result.decode('utf-8', errors='replace')
             remaining = deadline - time.monotonic()
             if remaining <= 0:
@@ -158,6 +183,13 @@ def main():
         if thread:
             thread.join(timeout=5)
         transcript.close()
+        if opt.log_reject:
+            raw = transcript_path.read_bytes()
+            for text in opt.log_reject:
+                if text.encode('utf-8') in raw:
+                    events['result'] = 'failed'
+                    events['error'] = f'rejected output found in complete transcript: {text!r}'
+                    break
         if proc is not None:
             events['process_exit'] = proc.poll()
             if events['result'] == 'passed' and proc.returncode != 0:
