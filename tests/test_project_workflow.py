@@ -72,6 +72,8 @@ class WorkflowTests(unittest.TestCase):
             verify.verify(self.working, self.spec, self.baseline)
 
     def test_baseline_and_paths_are_protected(self):
+        equivalent_root = self.working / '..' / 'working'
+        self.assertEqual(verify.within(equivalent_root, 'project.ioc'), (self.working / 'project.ioc').resolve())
         with self.assertRaises(ValueError):
             transaction.create(self.original, self.original / 'nested')
         with self.assertRaises(ValueError):

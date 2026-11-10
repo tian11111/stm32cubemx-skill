@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 def within(root, name):
+    root = root.resolve(strict=True)
     p = Path(name)
     if p.is_absolute() or '..' in p.parts:
         raise ValueError('path must be relative and inside the project: ' + name)
