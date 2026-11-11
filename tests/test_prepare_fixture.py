@@ -57,7 +57,7 @@ class PrepareTests(unittest.TestCase):
         original_copytree = module.shutil.copytree
         def copy_then_change(source, target, *args, **kwargs):
             result = original_copytree(source, target, *args, **kwargs)
-            if Path(source) == self.baseline:
+            if Path(source).resolve() == self.baseline.resolve():
                 (self.firmware / 'package.xml').write_text('changed')
             return result
         with mock.patch.object(module.shutil, 'copytree', side_effect=copy_then_change):
@@ -69,7 +69,7 @@ class PrepareTests(unittest.TestCase):
         original_copytree = module.shutil.copytree
         def copy_then_add(source, target, *args, **kwargs):
             result = original_copytree(source, target, *args, **kwargs)
-            if Path(source) == self.baseline:
+            if Path(source).resolve() == self.baseline.resolve():
                 (self.baseline / 'new.c').write_text('new')
             return result
         with mock.patch.object(module.shutil, 'copytree', side_effect=copy_then_add):
@@ -81,7 +81,7 @@ class PrepareTests(unittest.TestCase):
         for missing in (True, False):
             def corrupt(source, target, *args, **kwargs):
                 result = original_copytree(source, target, *args, **kwargs)
-                if Path(source) == self.baseline:
+                if Path(source).resolve() == self.baseline.resolve():
                     path = Path(target) / 'generated.c'
                     path.unlink() if missing else path.write_text('wrong')
                 return result
