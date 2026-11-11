@@ -18,7 +18,7 @@ Clone this repository as `stm32cubemx` inside your assistant's skills directory 
 
 Use `$stm32cubemx` in Codex, `/stm32cubemx` in Claude Code or DSH, and `$stm32cubemx` in ZCode after refreshing and enabling the skill in settings. DSH discovery depends on its profile, plugins and environment settings. Consult the [Claude Code](https://code.claude.com/docs/en/skills), [DSH](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/skill/skill-filesystem/README.md) and [ZCode](https://zcode.z.ai/cn/docs/skill) documentation for your version.
 
-You need STM32CubeMX, Python 3 and the target's local firmware package; a compatible toolchain is also needed for builds. ST software, firmware packages and probe patches are not included. This repository currently has no open-source license; contact the rights holder for permissions beyond the legal defaults.
+You need STM32CubeMX, Python 3 and the target's local firmware package; a compatible toolchain is also needed for builds. ST software, firmware packages and probe patches are not included. This repository is licensed under the [MIT License](LICENSE); ST products remain subject to their own licenses.
 
 ## Usage and verification
 

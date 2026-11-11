@@ -60,4 +60,4 @@ python -m unittest discover -s tests -v
 
 ## 许可
 
-本仓库暂未指定开源许可证；公开可见不等于授予开源使用权限。如需在法定默认权利之外复制、修改或再分发，请联系权利人。
+本仓库采用 [MIT 许可证](LICENSE)。STM32CubeMX 和 ST 固件包仍适用其各自的许可证。
