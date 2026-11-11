@@ -28,6 +28,8 @@ python scripts/prepare_fixture.py --baseline '<生成基线目录>' --firmware '
 
 脚本校验版本、必要文件和基线中的相对路径，并复制文件到固定的 `output/FixedF103Patched` 与 `firmware-f1` 布局。它不会修改输入目录或启动 CubeMX；完整使用和限制见[探针记录](references/probe-record.md)。
 
+没有现成基线时，可按 [F103 示例准备](references/f103-fixture.md)使用本机固件和已准备的 CubeMX 交互环境从零重建。原版 6.18.1 首次生成存在已观察到的路径问题，脚本会在错误或缺文件时停止，不会修改 CubeMX 安装或自动修补。
+
 在 Windows 和 CubeMX 6.18.1 的本机测试中，该布局通过加载、修改、重生成和验收。此前偶发的 `0xC0000008` 在 3 次版本查询、3 次重生成和 8 次带退出诊断的重生成中未再复现，**原因尚未确定**；这些通过结果不能排除偶发问题。相关生成验证使用了临时生成器路径修正，不代表未修改的 CubeMX 在所有机器上均可首次生成成功。
 
 ## 测试

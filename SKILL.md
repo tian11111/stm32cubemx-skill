@@ -10,11 +10,13 @@ description: "Use when STM32 work may change CubeMX-managed pins, peripheral ini
 
 ## 固件修改时的配置判断
 1. 动手前确定受影响的工程与 `.ioc`，检查现有 `.ioc`、生成初始化代码、用户代码和硬件连接；一个工作区可能有多个独立工程，不能改错目标。
-2. 判断需求是 CubeMX 管理的**初始配置**，还是运行时动态控制或用户代码。后者不一定需要修改 `.ioc`；不要为了形式同步而改变无关配置。
+2. 判断需求是 CubeMX 管理的**初始配置**，还是运行时动态控制或用户代码。沿初始化、配置加载和重新配置的调用链检查实际生效的设置；运行时参数不一定需要修改 `.ioc`，不要为了形式同步而改变无关配置。
 3. 若需要改变 CubeMX 管理的初始配置，优先通过 CubeMX 修改对应 `.ioc` 并回读，按任务授权和工程状态在临时副本生成、审阅差异后同步工程。不要只改生成代码就声称配置已完成；也不要把 `.ioc` 中的文本直接修改视为已通过 CubeMX 验证。
 4. 核对目标引脚、外设模式、时钟及与任务相关的 DMA/NVIC，检查引脚冲突、其他外设、生成文件删除及用户代码保留；再执行与改动相关的构建或其他检查。若无法运行 CubeMX、回读或生成，保留证据并明确报告配置与生成代码是否仍未同步及剩余工作；不要用编译成功替代配置或实板验证。
 
 需要快照、生成后检查或恢复副本时，使用[验收工作流](references/verification.md)；外设具体核对项见[外设检查清单](references/peripherals.md)。这些工具不会自动覆盖原工程。
+
+需要复用本机已生成的 `FixedF103Patched` 基线时，可使用 [prepare_fixture.py](scripts/prepare_fixture.py) 复制基线与固件包并核对 SHA-256；没有基线而需重建该示例时，可使用 [bootstrap_fixture.py](scripts/bootstrap_fixture.py) 和已准备的 CubeMX 交互启动配置。两者仅用于该 F103 验证示例，不是任意工程生成器；前置条件、命令及首次生成限制见 [F103 示例准备](references/f103-fixture.md)。
 
 ## 任务输入与报告
 - 按任务收集 MCU 或板卡、工程路径、期望更改、目标工具链和离线约束；已有工程以实际 `.ioc` 和文件为准。缺少影响操作的必要信息时先确认。
@@ -27,9 +29,9 @@ description: "Use when STM32 work may change CubeMX-managed pins, peripheral ini
 - 用户要求离线时，必须先由运行环境限制进程网络并隔离写入；无法验证所需隔离时不要启动 CubeMX。Java 参数和本技能控制器本身都不是操作系统级沙箱。不擅自下载或安装依赖。[Windows 实验性启动方案](references/offline-windows.md)可复用进程隔离，但需要预先准备应用副本和权限，不能自动证明文件或全部网络路径隔离。
 
 ## 真实验证的闭环
-1. 将现有工程复制到临时目录，记录生成前的文件清单和哈希。确认目标引脚空闲且属于用户要求。
-2. **在同一次交互会话**加载副本、查询器件、修改引脚并回读。逐条确认成功后再发送 `project generate`；不要把修改步骤和重新加载旧 `.ioc` 的生成步骤拆成彼此无关的会话。
-3. 对比前后引脚 CSV，核对生成 `.ioc` 和对应 C 源码；比较新增、删除、修改的文件及其他引脚、时钟。必要时在临时工程中用现有工具链构建。
+1. 将现有工程复制到临时目录，记录生成前的文件清单和哈希。根据需求确认目标资源的当前用途及冲突，不要假定引脚或外设空闲。
+2. **在同一次 CubeMX 会话**加载副本并核对器件，先查询目标资源的当前配置、可用功能或模式，再按需求设置并回读；相关引脚、时钟、DMA 和中断按实际改动一并核对。CLI 命令或参数不确定时先查当前版本的帮助，必要时可使用 CubeMX 界面完成整个修改和生成，不要猜测或照搬其他芯片的值。无法确认设置或回读时停止并报告，不要声称同步完成。
+3. 逐项确认成功后在该会话生成（CLI 使用 `project generate`），不要重新加载旧 `.ioc`。对比前后引脚 CSV，核对生成 `.ioc` 和对应 C 源码；比较新增、删除、修改的文件、用户代码及构建引用，检查无关配置是否变化。必要时在临时工程中用现有工具链构建。
 4. 审阅差异后再依据用户授权处理实际工程；临时副本生成成功不代表空目录首次生成或实板行为已验证。
 
 ## 逐条执行与失败停止
@@ -56,7 +58,7 @@ if ($LASTEXITCODE -ne 0) { throw 'CubeMX command failed; inspect events and tran
 - `load <mcu>` 或 `loadboard <board> <nomode|allmodes>` 后，用 `get mcu name` 核对；先 `get functions <pin>`、`get modes <peripheral>`，再 `set mode`、`set pin`，并用 `get signal`、`get mode active` 回读。
 - 时钟可通过 `get ip parameters RCC PLLMUL`、`get ip parameters RCC SYSCLKFreq_VALUE` 查询；F103 的 `clock set PLLMUL 8` 和 `9` 仅是已测示例，须按实际配置选值。工具值并不证明实板频率。
 - 生成前检查本地固件与目标工具链。对于目标工程已有配置，用 `project generate`；新目录按目标 MCU 配置后生成。逐项核对 `.ioc`、源码、`Drivers` 和生成器引用的文件是否存在，再检查完整文件差异及必要的构建产物；`OK` 不等于生成完整。
-- Windows 上如 Ninja 或 ARM GCC 未在 `PATH`，使用本机已有工具链；当临时项目提供对应的 Debug preset 时，可执行 `cmake --preset Debug` 与 `cmake --build --preset Debug -j 1`。不要把 CMake 编译器识别用 `.bin` 误认为固件。
+- Windows 上如 Ninja 或 ARM GCC 未在 `PATH`，先检查工程的 CMake preset、工具链文件及其中指定的工具是否可用；不要仅凭 `PATH` 判定缺失。当临时项目提供对应的 Debug preset 时，可执行 `cmake --preset Debug` 与 `cmake --build --preset Debug -j 1`。不要把 CMake 编译器识别用 `.bin` 误认为固件。
 
 ## 常见失败与恢复
 - CubeMX 可能自动检查更新；要求离线时先限制网络。不要把 Java 安全管理器或代理设置当作完整的操作系统网络隔离。
